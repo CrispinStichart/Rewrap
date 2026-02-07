@@ -14,9 +14,8 @@ Most workflows are driven by the `./do` script in the repo root.
 - .NET SDK (for F# + Fable)
 
 The repo includes a .NET tool manifest; `./do` will run `dotnet tool restore` automatically.
-This repo pins the SDK to .NET 6 via `global.json`, using a local SDK path at
-`/home/critter/Downloads/dotnet-6`. If you move that SDK, update `global.json`
-to match.
+This repo pins the SDK to .NET 10 via `global.json` (uses the system SDK on PATH).
+If you need a different SDK version, update `global.json` accordingly.
 
 ## Install
 
