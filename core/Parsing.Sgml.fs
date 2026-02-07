@@ -34,7 +34,7 @@ let sgml
 
         let afterFirstLine _ lines =
             let (Nonempty(lastLine, initLinesRev)) = Nonempty.rev lines
-            if (snd markers).IsMatch(lastLine) then
+            if (snd markers).IsMatch(lastLine: string) then
                 match Nonempty.fromList (List.rev initLinesRev) with
                     | Some middleLines ->
                         Nonempty.snoc

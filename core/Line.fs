@@ -11,11 +11,11 @@ open Prelude
 let isBlank : string -> bool = fun l -> System.String.IsNullOrWhiteSpace(l)
 
 /// Returns true if the line matches the given regex
-let contains : Regex -> string -> bool = fun regex line -> regex.IsMatch(line)
+let contains : Regex -> string -> bool = fun regex line -> regex.IsMatch(line: string)
 
 /// Returns true if the line starts with the given string, after optional whitespace
 let startsWith : string -> string -> bool =
-  fun marker line -> Regex(@"^\s*" + marker).IsMatch(line)
+  fun marker line -> Regex(@"^\s*" + marker).IsMatch(line: string)
 
 /// Tries to match a regex against a line. If a match is found, returns all
 /// characters up to and including the end of the match.

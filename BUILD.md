@@ -16,6 +16,8 @@ Most workflows are driven by the `./do` script in the repo root.
 The repo includes a .NET tool manifest; `./do` will run `dotnet tool restore` automatically.
 This repo pins the SDK to .NET 10 via `global.json` (uses the system SDK on PATH).
 If you need a different SDK version, update `global.json` accordingly.
+Note: `core/Core.Test.fsproj` targets `net8.0` and disables generated assembly info to
+avoid an F# `[<EntryPoint>]` ordering error during Fable compilation under newer SDKs.
 
 ## Install
 
