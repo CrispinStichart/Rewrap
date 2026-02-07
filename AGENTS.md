@@ -1,0 +1,1 @@
+See ARCHITECTURE.md for an overview of the codebase.
