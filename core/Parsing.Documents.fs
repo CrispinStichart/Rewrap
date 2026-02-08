@@ -45,6 +45,9 @@ let jsDocBlock = block' ("*", " * ") javadocMarkers jsdoc_markdown
 let private configFile = sc [line "#"]
 let java : DocumentProcessor =
   sc [ jsDocBlock; cBlock; line' "//[/!]" jsdoc_markdown; line "//" ]
+let javascript : DocumentProcessor =
+  sc [ jsDocBlock; cBlock; line' "//[/!]" jsdoc_markdown; line "//"
+       block (@"(.*?)`", "`") ]
 
 // Takes 4 args to create a Language:
 //  1. display name (used only in VS)
@@ -80,6 +83,7 @@ let mutable languages = [
         ( oldSourceCode
             [ customLine xmldoc "///"; cLine
               customBlock javadoc ( "*", " * " ) javadocMarkers; Parsing.SourceCode.cBlock
+              oldBlock (@"(.*?)""""""", "\"\"\"")
             ]
         )
     lang "Clojure" "" ".clj|.cljs|.cljc|.cljx|.edn" <| sc [line ";+"]
@@ -129,7 +133,7 @@ let mutable languages = [
     lang "INI" "" ".ini" <| sc [line "[#;]"]
     lang "J" "" ".ijs" <| sc [line @"NB\."]
     lang "Java" "" ".java" java
-    lang "JavaScript" "javascriptreact|js" ".js|.jsx" java
+    lang "JavaScript" "javascriptreact|js" ".js|.jsx" javascript
     lang "Julia" "" ".jl" <| sc [block ("#=", "=#"); line "#"; block (@".*?""""""", "\"\"\"")]
     lang "JSON" "json5|jsonc" ".json|.json5|.jsonc" java
     lang "LaTeX" "tex" ".bbx|.cbx|.cls|.sty|.tex"
