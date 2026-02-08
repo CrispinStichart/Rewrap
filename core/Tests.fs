@@ -8,7 +8,7 @@ open Rewrap
 type TestSettings =
   { language: string; column: int; tabWidth: int
     doubleSentenceSpacing: bool; reformat: bool; wholeComment: bool
-    blockCommentAddAsterisks: bool; blockCommentCloseOnNewLine: bool
+    blockCommentAddAsterisks: bool; blockCommentOpenOnNewLine: bool; blockCommentCloseOnNewLine: bool
     blockCommentAlignWithFirstLine: bool }
 
 /// Default settings that are applied unless modifications are specified in the
@@ -16,7 +16,7 @@ type TestSettings =
 let defaultSettings: TestSettings =
   { language = "plaintext"; column = 0; tabWidth = 4
     doubleSentenceSpacing = false; reformat = false; wholeComment = true
-    blockCommentAddAsterisks = false; blockCommentCloseOnNewLine = false
+    blockCommentAddAsterisks = false; blockCommentOpenOnNewLine = false; blockCommentCloseOnNewLine = false
     blockCommentAlignWithFirstLine = false }
 
 type Lines = string array
@@ -161,6 +161,7 @@ let readTestLines fileName (settings: TestSettings) lines : Result<Test * Option
               reformat = forceReformat || settings.reformat
               wholeComment = settings.wholeComment
               blockCommentAddAsterisks = settings.blockCommentAddAsterisks
+              blockCommentOpenOnNewLine = settings.blockCommentOpenOnNewLine
               blockCommentCloseOnNewLine = settings.blockCommentCloseOnNewLine
               blockCommentAlignWithFirstLine = settings.blockCommentAlignWithFirstLine
             }
@@ -187,6 +188,8 @@ let readSamplesInFile (fileName: string) : Result<Test * Option<Test>,TestError>
       wholeComment = pick "wholeComment" bool.Parse defaultSettings.wholeComment
       blockCommentAddAsterisks =
         pick "blockCommentAddAsterisks" bool.Parse defaultSettings.blockCommentAddAsterisks
+      blockCommentOpenOnNewLine =
+        pick "blockCommentOpenOnNewLine" bool.Parse defaultSettings.blockCommentOpenOnNewLine
       blockCommentCloseOnNewLine =
         pick "blockCommentCloseOnNewLine" bool.Parse defaultSettings.blockCommentCloseOnNewLine
       blockCommentAlignWithFirstLine =
@@ -238,6 +241,7 @@ let printFailure (test: Test) (actual: Lines) =
     if test.settings.reformat then "reformat: true " else ""
     if not test.settings.wholeComment then "wholeComment: false" else ""
     if test.settings.blockCommentAddAsterisks then "blockCommentAddAsterisks: true " else ""
+    if test.settings.blockCommentOpenOnNewLine then "blockCommentOpenOnNewLine: true " else ""
     if test.settings.blockCommentCloseOnNewLine then "blockCommentCloseOnNewLine: true " else ""
     if test.settings.blockCommentAlignWithFirstLine then "blockCommentAlignWithFirstLine: true " else ""
   ]

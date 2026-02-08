@@ -48,6 +48,7 @@ export interface Settings {
   reformat: boolean
   wholeComment: boolean
   blockCommentAddAsterisks: boolean
+  blockCommentOpenOnNewLine: boolean
   blockCommentCloseOnNewLine: boolean
   blockCommentAlignWithFirstLine: boolean
 }

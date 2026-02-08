@@ -137,8 +137,8 @@ type CommentFormat =
 /// Takes comment lines from either a line or block comment and parses into
 /// blocks.
 let private inspectAndProcessContent :
-   CommentFormat -> (Settings -> TotalParser<string>) -> Line option -> Settings -> Blocks =
-  fun fmt contentParser extraEndLine settings ->
+   CommentFormat -> (Settings -> TotalParser<string>) -> Line option -> Line option -> Settings -> Blocks =
+  fun fmt contentParser extraStartLine extraEndLine settings ->
 
   let tabWidth = settings.tabWidth
 
@@ -211,12 +211,14 @@ let private inspectAndProcessContent :
             let markerWidth = strWidth marker
             let baseIndent =
               if align then
-                match typ_line with
-                  | Normal, line ->
-                      let target = strWidth line.prefix
-                      let indentWidth = max 0 (target - markerWidth)
-                      String.replicate indentWidth " "
-                  | Decoration, _ -> leadingWhitespace bodyPrefix
+                if extraStartLine.IsSome then leadingWhitespace bodyPrefix
+                else
+                  match typ_line with
+                    | Normal, line ->
+                        let target = strWidth line.prefix
+                        let indentWidth = max 0 (target - markerWidth)
+                        String.replicate indentWidth " "
+                    | Decoration, _ -> leadingWhitespace bodyPrefix
               else leadingWhitespace bodyPrefix
             baseIndent + marker
 
@@ -243,6 +245,15 @@ let private inspectAndProcessContent :
 
   let lines =
     match fmt with
+      | MultiLineBlockFmt _
+      | SingleLineBlockFmt _ when extraStartLine.IsSome ->
+          let (Nonempty(first, rest)) = lines
+          let typ, line = first
+          Nonempty((typ, line |> Line.mapPrefix (fun _ -> desiredBodyPrefix)), rest)
+      | _ -> lines
+
+  let lines =
+    match fmt with
       | MultiLineBlockFmt (_, _, _, _, opts)
       | SingleLineBlockFmt (_, _, opts) ->
           if opts.isCStyle && (settings.blockCommentAddAsterisks || settings.blockCommentAlignWithFirstLine) then
@@ -257,6 +268,10 @@ let private inspectAndProcessContent :
       | LineFmt _ -> lines
 
   let blocks = processCommentContent settings contentParser desiredBodyPrefix lines
+  let blocks =
+    match extraStartLine with
+    | Some line -> Nonempty.append (singleton (ExtraLine (Line.toString line))) blocks
+    | None -> blocks
   let blocks =
     match extraEndLine with
     | Some line ->
@@ -295,7 +310,7 @@ let lineComment : (Settings -> TotalParser<string>) -> string -> Settings -> Opt
     let moreLines, linesAfter = List.spanMaybes matchesFirst restLines
     let fmt = LineFmt (firstLine .@ moreLines, indent)
 
-    return inspectAndProcessContent fmt contentParser None settings, Nonempty.fromList linesAfter
+    return inspectAndProcessContent fmt contentParser None None settings, Nonempty.fromList linesAfter
   }
 
 
@@ -316,6 +331,7 @@ let blockComment :
     not (String.IsNullOrWhiteSpace(after))
 
   let isCStyle = isCStyleBlockComment (startMarker, endMarker)
+  let openOnNewLine = isCStyle && settings.blockCommentOpenOnNewLine
   let closeOnNewLine = isCStyle && settings.blockCommentCloseOnNewLine
 
   /// Given remaining lines, finds the comment end marker
@@ -342,6 +358,12 @@ let blockComment :
   fun (Nonempty(hStr, tStrs)) -> option {
     let mStart = startRegex.Match(hStr)
     if not mStart.Success then return! None else
+
+    let extraStartLine =
+      if openOnNewLine && Line.containsText (hStr.Substring(mStart.Length)) then
+        let startLine = hStr.Substring(0, mStart.Length).TrimEnd()
+        Some (Line(startLine, startLine.Length))
+      else None
 
     let hLine = Line(hStr, mStart.Length)
     let mkFirstLine (line: Line) p =
@@ -371,5 +393,5 @@ let blockComment :
         let opts = { isCStyle = isCStyle; alignEndMarkerToBody = alignEndToBody }
         MultiLineBlockFmt (fl, bodyLines, nonTextLastLine, bodyMarkers, opts), extraEndLine, linesAfter
 
-    return inspectAndProcessContent fmt contentParser extraEndLine settings, Nonempty.fromList linesAfter
+    return inspectAndProcessContent fmt contentParser extraStartLine extraEndLine settings, Nonempty.fromList linesAfter
   }

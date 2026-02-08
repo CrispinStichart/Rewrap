@@ -10,6 +10,7 @@ export interface EditorSettings {
   reformat: boolean
   wholeComment: boolean
   blockCommentAddAsterisks: boolean
+  blockCommentOpenOnNewLine: boolean
   blockCommentCloseOnNewLine: boolean
   blockCommentAlignWithFirstLine: boolean
 }
@@ -32,6 +33,7 @@ export function getCoreSettings (editor: TextEditor, fn: (cols:number[]) => numb
     reformat: settings.reformat,
     tabWidth: settings.tabWidth,
     blockCommentAddAsterisks: settings.blockCommentAddAsterisks,
+    blockCommentOpenOnNewLine: settings.blockCommentOpenOnNewLine,
     blockCommentCloseOnNewLine: settings.blockCommentCloseOnNewLine,
     blockCommentAlignWithFirstLine: settings.blockCommentAlignWithFirstLine,
   }
@@ -50,6 +52,7 @@ export function getEditorSettings (editor: TextEditor) : EditorSettings {
     wholeComment: setting('rewrap.wholeComment'),
     reformat: setting('rewrap.reformat'),
     blockCommentAddAsterisks: setting('rewrap.blockComment.addAsterisks'),
+    blockCommentOpenOnNewLine: setting('rewrap.blockComment.openOnNewLine'),
     blockCommentCloseOnNewLine: setting('rewrap.blockComment.closeOnNewLine'),
     blockCommentAlignWithFirstLine: setting('rewrap.blockComment.alignWithFirstLine'),
     tabWidth: checkTabSize(editor.options.tabSize),

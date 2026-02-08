@@ -90,6 +90,12 @@ used for created lines.
     /* this is a multiline¦      ->      /* this is a multiline¦
     comment line */       ¦              ·* comment line */    ¦
 
+> language: c, blockCommentOpenOnNewLine: true
+
+    /* this is a multiline¦      ->      /*                    ¦
+    comment line */       ¦              this is a multiline   ¦
+                          ¦              comment line */       ¦
+
 > language: c, blockCommentCloseOnNewLine: true
 
     /* this is a multiline¦      ->      /* this is a multiline¦

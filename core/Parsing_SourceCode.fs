@@ -114,8 +114,8 @@ let private mkPrefixFn start len rep (pre: string) : string =
 
 /// Takes comment lines from either a line or block comment and parses into blocks.
 let private inspectAndProcessContent :
-   ContentParser -> CommentFormat -> Line option -> Context -> unit =
-  fun contentParser fmt extraEndLine ctx ->
+   ContentParser -> CommentFormat -> Line option -> Line option -> Context -> unit =
+  fun contentParser fmt extraStartLine extraEndLine ctx ->
 
   let tabWidth = ctx.settings.tabWidth
 
@@ -185,7 +185,7 @@ let private inspectAndProcessContent :
             let markerWidth = strWidth marker
             let baseIndent =
               if align then
-                if line :? DecorationLine then leadingWhitespace bodyPrefix
+                if extraStartLine.IsSome || line :? DecorationLine then leadingWhitespace bodyPrefix
                 else
                   let target = strWidth line.prefix
                   let indentWidth = max 0 (target - markerWidth)
@@ -215,6 +215,15 @@ let private inspectAndProcessContent :
 
   let lines =
     match fmt with
+      | MultiLineBlockFmt _
+      | SingleLineBlockFmt _ when extraStartLine.IsSome ->
+          let (Nonempty(first, rest)) = lines
+          let first = first |> Line.mapPrefix (fun _ -> desiredBodyPrefix)
+          Nonempty(first, rest)
+      | _ -> lines
+
+  let lines =
+    match fmt with
       | MultiLineBlockFmt (_, _, _, info)
       | SingleLineBlockFmt (_, info) ->
           if info.isCStyle && (ctx.settings.blockCommentAddAsterisks || ctx.settings.blockCommentAlignWithFirstLine) then
@@ -227,6 +236,10 @@ let private inspectAndProcessContent :
             Nonempty(first, rest)
           else lines
       | LineFmt _ -> lines
+
+  match extraStartLine with
+  | Some line -> ctx.addBlock (ExtraLine (line.prefix + line.content))
+  | None -> ()
 
   processContent (withDecorations contentParser prefixFn) ctx lines
 
@@ -249,7 +262,7 @@ type private LineCommentBlock (contentParser: ContentParser) =
   // support end-of-line comments
   override _.output ctx lines =
     let fmt = LineFmt (lines, strWidth ctx.settings.tabWidth (Nonempty.head lines).prefix)
-    inspectAndProcessContent contentParser fmt None ctx
+    inspectAndProcessContent contentParser fmt None None ctx
 
 
 let lineComment : string -> ContentParser -> TryNewParser =
@@ -286,9 +299,16 @@ type private BlockCommentBlock
       let after = str.Substring(p)
       not (String.IsNullOrWhiteSpace(after))
 
+    let openOnNewLine = info.isCStyle && ctx.settings.blockCommentOpenOnNewLine
     let closeOnNewLine = info.isCStyle && ctx.settings.blockCommentCloseOnNewLine
     let inline validEnd (line: Line) =
       mEndLen > 0 && mEndIndex >= 0 && mEndIndex + mEndLen <= line.content.Length
+
+    let extraStartLine =
+      if openOnNewLine && Line.containsText hLine.content then
+        let startLine = hLine.prefix.TrimEnd()
+        Some (Line(startLine, startLine.Length))
+      else None
 
     let mkFirstLine (line: Line) p : Line =
       if not (hasTextUpTo p line.content) then upcast (DecorationLine line)
@@ -325,7 +345,7 @@ type private BlockCommentBlock
           let info = { info with alignEndMarkerToBody = alignEndToBody }
           MultiLineBlockFmt (fl, bodyLines, nonTextLastLine, info), extraEndLine
 
-    inspectAndProcessContent contentParser fmt extraEndLine ctx
+    inspectAndProcessContent contentParser fmt extraStartLine extraEndLine ctx
 
 /// Block comment parser
 /// Block comment parser

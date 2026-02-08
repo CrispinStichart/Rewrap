@@ -19,6 +19,7 @@ type Settings = {
   reformat : bool
   wholeComment : bool
   blockCommentAddAsterisks : bool
+  blockCommentOpenOnNewLine : bool
   blockCommentCloseOnNewLine : bool
   blockCommentAlignWithFirstLine : bool
 }

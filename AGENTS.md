@@ -5,6 +5,6 @@ Once you're done with a change, before finishing run:
 ```
 ./do clean
 ./do build
-./do test
+./do test core
 ./do package
 ```

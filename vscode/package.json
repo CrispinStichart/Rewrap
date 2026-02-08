@@ -96,6 +96,12 @@
           "default": false,
           "description": "For C-style block comments (/* ... */), add a leading \"*\" on each wrapped line."
         },
+        "rewrap.blockComment.openOnNewLine": {
+          "scope": "language-overridable",
+          "type": "boolean",
+          "default": false,
+          "description": "For C-style block comments (/* ... */), always put the opening marker on its own line when wrapping."
+        },
         "rewrap.blockComment.closeOnNewLine": {
           "scope": "language-overridable",
           "type": "boolean",

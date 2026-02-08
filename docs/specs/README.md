@@ -46,6 +46,7 @@ When absent, the default values are used:
 - wrapWholeComment: true
 - reformat: false
 - blockCommentAddAsterisks: false
+- blockCommentOpenOnNewLine: false
 - blockCommentCloseOnNewLine: false
 - blockCommentAlignWithFirstLine: false
 
