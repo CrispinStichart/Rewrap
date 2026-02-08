@@ -49,6 +49,7 @@ const [targetCore, targetVSCode]
   : [true, true]
 const watch = suppliedAny ('watch')
 const verbose = suppliedAny ('--verbose', '-v')
+const skipVSCodeTests = suppliedAny ('--skip-vscode-tests')
 let cleanRun, testsRun
 
 
@@ -177,7 +178,8 @@ function runTests ({production} = {}) {
 
   if (targetVSCode) {
     buildVSCode ({production})
-    if (process.env.TERM_PROGRAM == 'vscode') log ("Can't run VS Code tests inside VS Code")
+    if (skipVSCodeTests) log ("Skipping VS Code tests (--skip-vscode-tests)")
+    else if (process.env.TERM_PROGRAM == 'vscode') log ("Can't run VS Code tests inside VS Code")
     else run ("Running VS Code tests", 'node vscode/test/run.cjs')
   }
 }
@@ -394,7 +396,7 @@ function showHelpAndExit () {
     "Usage: ./do (<operation> | <component> | <option>)...",
     "- Operations:\n    " + opStrs,
     `- Components: ${components.join(", ")}`,
-    `- Options: --verbose (-v)`,
+    `- Options: --verbose (-v), --skip-vscode-tests`,
     "",
     "If no operations are given, does a 'build'. If no components are given,",
     "does all components. Always does builds as necessary.",

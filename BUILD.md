@@ -29,6 +29,9 @@ npm install
 
 `./do` will also install dependencies if they are missing.
 
+Optional flags:
+- `--skip-vscode-tests` skips VS Code integration tests.
+
 ## Build (Development)
 
 ```bash
@@ -88,6 +91,12 @@ Removes build artifacts and caches for `core` and `vscode`.
 
 ```bash
 ./do package
+```
+
+To skip VS Code tests during packaging:
+
+```bash
+./do package --skip-vscode-tests
 ```
 
 Creates a VSIX at `.obj/Rewrap-VSCode.vsix`.
