@@ -138,6 +138,9 @@ type OutputBuffer(settings : Settings) =
     linesConsumed <- linesConsumed + consumed
     outputLines <- newOutputLines
 
+  member _.emitExtraLine (line: string) =
+    outputLines <- line :: outputLines
+
   member this.wrap (mbPrefixFn: (string -> string) option, lines: Line Nonempty) =
     let prefixes = lines |> map (fun l -> l.prefix)
     let prefixes =

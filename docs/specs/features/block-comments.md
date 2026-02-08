@@ -81,3 +81,22 @@ used for created lines.
 
     ··/** Foo bar¦baz */      ->      ··/** Foo bar¦
                  ¦                       * baz */  ¦
+
+
+## Optional formatting
+
+> language: c, blockCommentAddAsterisks: true
+
+    /* this is a multiline¦      ->      /* this is a multiline¦
+    comment line */       ¦              ·* comment line */    ¦
+
+> language: c, blockCommentCloseOnNewLine: true
+
+    /* this is a multiline¦      ->      /* this is a multiline¦
+    comment line */       ¦              comment line          ¦
+                          ¦              */                    ¦
+
+> language: c, blockCommentAlignWithFirstLine: true
+
+    /* this is a multiline¦      ->      /* this is a multiline¦
+    comment line */       ¦              ···comment line */    ¦

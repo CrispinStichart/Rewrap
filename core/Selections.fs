@@ -109,6 +109,7 @@ let rec private processBlocks : Context -> LineRange list -> ParseResult -> unit
     | NBlock (nb, lines) ->
         let inline mkNewBlock ls = NBlock (nb, ls)
         Nonempty.splitAt n lines |> bimap mkNewBlock (map mkNewBlock)
+    | ExtraLine line -> ExtraLine line, None
     | Wrap ((pHead, pTail), lines) ->
         Nonempty.splitAt n lines |> bimap
             (fun ls -> Wrap ((pHead, pTail), ls))
@@ -121,62 +122,78 @@ let rec private processBlocks : Context -> LineRange list -> ParseResult -> unit
     match block with
     | IsContainer blocks -> blocks |> Seq.iter (processWholeBlock 1 origLines >> ignore)
     | NBlock (nb, lines) -> nb.output context lines
+    | ExtraLine line -> output.emitExtraLine line
     | Wrap ((f, s), lines) -> output.wrap (f .@ [s], lines)
     | NoWrap lines -> output.noWrap lines
 
-    length, origLines |> Nonempty.splitAt length |> snd
+    if length < 1 then length, Some origLines
+    else length, origLines |> Nonempty.splitAt length |> snd
 
   let skipLines count lines : int * string Nonempty Option =
     count, lines |> Nonempty.splitAt count |> lmap output.skip |> snd
 
   let rec loop (sels: List<LineRange>) start (Nonempty(block, otherBlocks)) origLines =
-    let blockLength = size block
-    let selsTouching = sels |> List.filter (fun s -> s.startLine < (start + blockLength))
-    let hasEmptySelection = selsTouching |> List.exists (fun s -> s.isEmpty)
+    match block with
+    | ExtraLine line ->
+        output.emitExtraLine line
+        match Nonempty.fromList otherBlocks with
+        | Some neNextBlocks -> loop sels start neNextBlocks origLines
+        | None -> ()
+    | _ ->
+        let blockLength = size block
+        let selsTouching = sels |> List.filter (fun s -> s.startLine < (start + blockLength))
+        let hasEmptySelection = selsTouching |> List.exists (fun s -> s.isEmpty)
 
-    let (consumedLineCount, nextOrigLines), maybeRemainingPartialBlock =
-      match List.tryHead selsTouching with
-      | None -> skipLines blockLength origLines, None
-      | Some sel ->
-          match block with
-          | IsContainer blocks ->
-              if hasEmptySelection && settings.wholeComment then
-                processWholeBlock blockLength origLines block, None
-              else
-                let parseRes =
-                  {startLine = start; originalLines = origLines; blocks = blocks}
-                processBlocks context sels parseRes
-                (blockLength, origLines |> Nonempty.splitAt blockLength |> snd), None
-          | NBlock _ ->
-              if hasEmptySelection then processWholeBlock blockLength origLines block, None
-              else
-                let firstPartOrWholeSelected = sel.startLine <= start
-                if firstPartOrWholeSelected then
-                  let splitAt = min (sel.endLine - start + 1) blockLength
-                  splitBlock splitAt block |> lmap (processWholeBlock splitAt origLines)
-                else
-                  let splitAt = sel.startLine - start
-                  splitBlock splitAt block |> lmap (fun _ -> skipLines splitAt origLines)
-          | Wrap _ | NoWrap _ ->
-              if hasEmptySelection then processWholeBlock blockLength origLines block, None
-              else
-                let firstPartOrWholeSelected = sel.startLine <= start
-                if firstPartOrWholeSelected then
-                  let splitAt = min (sel.endLine - start + 1) blockLength
-                  splitBlock splitAt block |> lmap (processWholeBlock splitAt origLines)
-                else
-                  let splitAt = sel.startLine - start
-                  splitBlock splitAt block |> lmap (fun _ -> skipLines splitAt origLines)
+        let (consumedLineCount, nextOrigLines), maybeRemainingPartialBlock =
+          match List.tryHead selsTouching with
+          | None -> skipLines blockLength origLines, None
+          | Some sel ->
+              match block with
+              | IsContainer blocks ->
+                  if hasEmptySelection && settings.wholeComment then
+                    processWholeBlock blockLength origLines block, None
+                  else
+                    let parseRes =
+                      {startLine = start; originalLines = origLines; blocks = blocks}
+                    processBlocks context sels parseRes
+                    (blockLength, origLines |> Nonempty.splitAt blockLength |> snd), None
+              | NBlock _ ->
+                  if hasEmptySelection then processWholeBlock blockLength origLines block, None
+                  else
+                    let firstPartOrWholeSelected = sel.startLine <= start
+                    if firstPartOrWholeSelected then
+                      let splitAt = min (sel.endLine - start + 1) blockLength
+                      splitBlock splitAt block |> lmap (processWholeBlock splitAt origLines)
+                    else
+                      let splitAt = sel.startLine - start
+                      splitBlock splitAt block |> lmap (fun _ -> skipLines splitAt origLines)
+              | Wrap _ | NoWrap _ ->
+                  if hasEmptySelection then processWholeBlock blockLength origLines block, None
+                  else
+                    let firstPartOrWholeSelected = sel.startLine <= start
+                    if firstPartOrWholeSelected then
+                      let splitAt = min (sel.endLine - start + 1) blockLength
+                      splitBlock splitAt block |> lmap (processWholeBlock splitAt origLines)
+                    else
+                      let splitAt = sel.startLine - start
+                      splitBlock splitAt block |> lmap (fun _ -> skipLines splitAt origLines)
 
 
-    let nextBlocks = maybe otherBlocks (fun b -> b :: otherBlocks) maybeRemainingPartialBlock
-    match Nonempty.fromList nextBlocks with
-    | Some neNextBlocks ->
-        let remaining = LineRange.toInfinity (start + consumedLineCount)
-        let nextSels = sels |> List.skipWhile (not << intersects remaining)
-        if nextSels.IsEmpty then ()
-        else loop nextSels remaining.startLine neNextBlocks (Option.get nextOrigLines)
-    | None -> ()
+        let nextBlocks = maybe otherBlocks (fun b -> b :: otherBlocks) maybeRemainingPartialBlock
+        match Nonempty.fromList nextBlocks with
+        | Some neNextBlocks ->
+            let remaining = LineRange.toInfinity (start + consumedLineCount)
+            let nextSels = sels |> List.skipWhile (not << intersects remaining)
+            if nextSels.IsEmpty then ()
+            else
+              let nextOrigLines =
+                match nextOrigLines with
+                | Some lines -> lines
+                | None ->
+                    if nextBlocks |> List.forall (fun b -> size b = 0) then origLines
+                    else Option.get nextOrigLines
+              loop nextSels remaining.startLine neNextBlocks nextOrigLines
+        | None -> ()
 
   loop selections parseResult.startLine parseResult.blocks parseResult.originalLines
 

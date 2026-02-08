@@ -75,6 +75,9 @@ namespace VS
                 , options.DoubleSentenceSpacing
                 , options.Reformat
                 , options.WholeComment
+                , false
+                , false
+                , false
                 );
         }
 

@@ -45,6 +45,9 @@ When absent, the default values are used:
 - language: plaintext
 - wrapWholeComment: true
 - reformat: false
+- blockCommentAddAsterisks: false
+- blockCommentCloseOnNewLine: false
+- blockCommentAlignWithFirstLine: false
 
 A new settings block completely replaces the previous one; any absent values are reset
 back to defaults.

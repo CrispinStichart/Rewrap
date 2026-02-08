@@ -90,6 +90,24 @@
           "default": false,
           "description": "(EXPERIMENTAL) When wrapping lines, reformat paragraph indents."
         },
+        "rewrap.blockComment.addAsterisks": {
+          "scope": "language-overridable",
+          "type": "boolean",
+          "default": false,
+          "description": "For C-style block comments (/* ... */), add a leading \"*\" on each wrapped line."
+        },
+        "rewrap.blockComment.closeOnNewLine": {
+          "scope": "language-overridable",
+          "type": "boolean",
+          "default": false,
+          "description": "For C-style block comments (/* ... */), always put the closing marker on its own line when wrapping."
+        },
+        "rewrap.blockComment.alignWithFirstLine": {
+          "scope": "language-overridable",
+          "type": "boolean",
+          "default": false,
+          "description": "For C-style block comments (/* ... */), align wrapped lines so their text starts under the first line."
+        },
         "rewrap.onSave": {
           "scope": "language-overridable",
           "type": "boolean",

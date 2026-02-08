@@ -47,6 +47,9 @@ export interface Settings {
   doubleSentenceSpacing: boolean
   reformat: boolean
   wholeComment: boolean
+  blockCommentAddAsterisks: boolean
+  blockCommentCloseOnNewLine: boolean
+  blockCommentAlignWithFirstLine: boolean
 }
 
 

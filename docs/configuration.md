@@ -19,6 +19,9 @@ All settings can be set per language/file type ([see below](#language-specific-s
 | [Auto Wrap: Enabled](#enabling)                     | <si>rewrap.autoWrap.enabled</si>      | false \| true          |
 | [Auto Wrap: Notification](#notification)            | <si>rewrap.autoWrap.notification</si> | "icon" \| "text"       |
 | [Double Sentence Spacing](#double-sentence-spacing) | <si>rewrap.doubleSentenceSpacing</si> | false \| true          |
+| [Block Comment: Add Asterisks](#block-comment-formatting) | <si>rewrap.blockComment.addAsterisks</si> | false \| true |
+| [Block Comment: Close on New Line](#block-comment-formatting) | <si>rewrap.blockComment.closeOnNewLine</si> | false \| true |
+| [Block Comment: Align With First Line](#block-comment-formatting) | <si>rewrap.blockComment.alignWithFirstLine</si> | false \| true |
 | [Whole Comment](#whole-comment)                     | <si>rewrap.wholeComment</si>          | true \| false          |
 | [Wrapping Column](#wrapping-column)                 | <si>rewrap.wrappingColumn</si>        | &lt;number&gt;         |
 
@@ -93,6 +96,23 @@ two spaces will be added after that sentence when the paragraph is rewrapped. Th
 enabled by default.
 
 ([details](specs/features/double-sentence-spacing.md))
+
+## Block Comment Formatting
+
+These settings only apply to C-style block comments (the ones that use `/* ... */`).
+
+!!! json ""
+
+    ``` js
+      "rewrap.blockComment.addAsterisks": false,
+      "rewrap.blockComment.closeOnNewLine": false,
+      "rewrap.blockComment.alignWithFirstLine": false
+    ```
+
+When enabled:
+- <sn>Block Comment: Add Asterisks</sn> inserts a leading <si>*</si> on each wrapped line.
+- <sn>Block Comment: Close on New Line</sn> puts <si>*/</si> on its own line when wrapping.
+- <sn>Block Comment: Align With First Line</sn> aligns wrapped lines so their text starts under the first line's text.
 
 
 ## Auto-wrap

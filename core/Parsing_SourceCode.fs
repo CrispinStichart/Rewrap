@@ -60,6 +60,18 @@ let private splitAtWidth : int -> int -> int -> Line -> Line =
 /// Regex that captures whitespace at the beginning of a string
 let private wsRegex = regex @"^\s*"
 
+let private isCStyleBlockComment (startMarker: string, endMarker: string) =
+  startMarker.Contains(@"/\*") && endMarker.Contains(@"\*/")
+
+type BlockCommentInfo =
+  { bodyMarkers: string
+    defaultBodyMarker: string
+    prefixStart: int
+    prefixLen: int
+    baseIndent: string
+    isCStyle: bool
+    alignEndMarkerToBody: bool }
+
 type CommentFormat =
   /// Line comment (//). Takes the comment lines and the column that's immediately after
   /// the comment markers.
@@ -68,10 +80,10 @@ type CommentFormat =
   /// list of "body" lines; the last line separately, if it only contains the end comment
   /// marker (without text preceeding it); and a string of characters that are allowed in
   /// each line prefix (eg "*")
-  | MultiLineBlockFmt of Line * Line List * Line Option * string
+  | MultiLineBlockFmt of Line * Line List * Line Option * BlockCommentInfo
   /// Block comment, but one that's only on a single line. Takes the prefix to use if new
   /// lines are added.
-  | SingleLineBlockFmt of Line * (string -> string)
+  | SingleLineBlockFmt of Line * BlockCommentInfo
 
 
 /// Wrapper that makes sure DecorationLines aren't wrapped
@@ -96,10 +108,14 @@ let withDecorations : ContentParser -> PrefixTransformer -> ContentParser =
   contentParser ctx >> wrapFLR >> wrapPrefixFn prefixFn
 
 
+let private mkPrefixFn start len rep (pre: string) : string =
+  pre.Substring(0, start) + rep + pre.Substring(start + len)
+
+
 /// Takes comment lines from either a line or block comment and parses into blocks.
 let private inspectAndProcessContent :
-   ContentParser -> CommentFormat -> Context -> unit =
-  fun contentParser fmt ctx ->
+   ContentParser -> CommentFormat -> Line option -> Context -> unit =
+  fun contentParser fmt extraEndLine ctx ->
 
   let tabWidth = ctx.settings.tabWidth
 
@@ -109,10 +125,10 @@ let private inspectAndProcessContent :
     match fmt with
     | LineFmt (lines, initialIndent) ->
         lines :> seq<Line>, wsRegex, initialIndent
-    | MultiLineBlockFmt (_, tLines, _, bodyMarkers) ->
-        let bm = if bodyMarkers <> "" then "[" + bodyMarkers + @"]?\s*" else ""
+    | MultiLineBlockFmt (_, tLines, _, info) ->
+        let bm = if info.bodyMarkers <> "" then "[" + info.bodyMarkers + @"]?\s*" else ""
         tLines :> seq<Line>, regex (@"^\s*" + bm), 0
-    | SingleLineBlockFmt _ ->
+    | SingleLineBlockFmt (_, info) ->
         Seq.empty, wsRegex, 0
 
   let strWidth = strWidth' initialIndent tabWidth
@@ -148,19 +164,83 @@ let private inspectAndProcessContent :
     let mapping maybePrefix = adjust >> rmap (fun mlp -> maybePrefix <|> mlp)
     lines |> Seq.mapFold mapping None
 
-  // In the case of block comments — combining the adjusted body lines with the first (and
-  // possibly last) lines of the block.
+  let defaultPrefix =
+    match fmt with
+      | LineFmt _ -> ""
+      | MultiLineBlockFmt (_, _, _, info) -> info.baseIndent + info.defaultBodyMarker
+      | SingleLineBlockFmt (_, info) -> info.baseIndent + info.defaultBodyMarker
+
+  let bodyPrefix = maybeBodyPrefix |? defaultPrefix
+
+  let desiredBodyPrefix =
+    match fmt with
+      | LineFmt _ -> bodyPrefix
+      | MultiLineBlockFmt (line, _, _, info)
+      | SingleLineBlockFmt (line, info) ->
+          let addStars = ctx.settings.blockCommentAddAsterisks
+          let align = ctx.settings.blockCommentAlignWithFirstLine
+          if not info.isCStyle || (not addStars && not align) then bodyPrefix
+          else
+            let marker = if addStars then " * " else ""
+            let markerWidth = strWidth marker
+            let baseIndent =
+              if align then
+                if line :? DecorationLine then leadingWhitespace bodyPrefix
+                else
+                  let target = strWidth line.prefix
+                  let indentWidth = max 0 (target - markerWidth)
+                  String.replicate indentWidth " "
+              else leadingWhitespace bodyPrefix
+            baseIndent + marker
+
+  let adjustEndLine (line: Line) =
+    let indent = leadingWhitespace desiredBodyPrefix
+    let content = line.content.TrimStart()
+    Line("", indent + content)
+
   let lines, prefixFn =
     match fmt with
       | LineFmt _ -> Nonempty.fromSeqUnsafe lines, id
-      | MultiLineBlockFmt (line, _, mbLastLine, _) ->
+      | MultiLineBlockFmt (line, _, mbLastLine, info) ->
         let last: seq<Line> =
-          maybe Seq.empty (fun l -> Seq.singleton (upcast DecorationLine(l))) mbLastLine
-        line .@ List.ofSeq (Seq.append lines last), id
-      | SingleLineBlockFmt (typ_line, prefixFn) ->
-          singleton typ_line, prefixFn
+          maybe Seq.empty (fun l ->
+            let l = if info.alignEndMarkerToBody then adjustEndLine l else l
+            Seq.singleton (upcast DecorationLine(l))) mbLastLine
+        let lines = line .@ List.ofSeq (Seq.append lines last)
+        let prefixFn = mkPrefixFn info.prefixStart info.prefixLen desiredBodyPrefix
+        lines, prefixFn
+      | SingleLineBlockFmt (line, info) ->
+          let prefixFn = mkPrefixFn info.prefixStart info.prefixLen desiredBodyPrefix
+          singleton line, prefixFn
+
+  let lines =
+    match fmt with
+      | MultiLineBlockFmt (_, _, _, info)
+      | SingleLineBlockFmt (_, info) ->
+          if info.isCStyle && (ctx.settings.blockCommentAddAsterisks || ctx.settings.blockCommentAlignWithFirstLine) then
+            let (Nonempty(first, rest)) = lines
+            let rest =
+              rest
+              |> List.map (fun line ->
+                  if line :? DecorationLine then line
+                  else line |> Line.mapPrefix (fun _ -> desiredBodyPrefix))
+            Nonempty(first, rest)
+          else lines
+      | LineFmt _ -> lines
 
   processContent (withDecorations contentParser prefixFn) ctx lines
+
+  match extraEndLine with
+  | Some line ->
+      let line =
+        match fmt with
+        | MultiLineBlockFmt (_, _, _, info)
+        | SingleLineBlockFmt (_, info) ->
+            if info.alignEndMarkerToBody then adjustEndLine line else line
+        | LineFmt _ -> line
+      ctx.addBlock (ExtraLine (line.prefix + line.content))
+  | None -> ()
+
 
 
 type private LineCommentBlock (contentParser: ContentParser) =
@@ -169,7 +249,7 @@ type private LineCommentBlock (contentParser: ContentParser) =
   // support end-of-line comments
   override _.output ctx lines =
     let fmt = LineFmt (lines, strWidth ctx.settings.tabWidth (Nonempty.head lines).prefix)
-    inspectAndProcessContent contentParser fmt ctx
+    inspectAndProcessContent contentParser fmt None ctx
 
 
 let lineComment : string -> ContentParser -> TryNewParser =
@@ -197,53 +277,85 @@ let lineComment : string -> ContentParser -> TryNewParser =
 
 /// Takes the contents of the last line so that we later know when we've hit it
 type private BlockCommentBlock
-  (contentParser: ContentParser, bodyMarkers: string, defaultBodyMarker: string, prefixFn: string -> string, mEndIndex: int) =
+  (contentParser: ContentParser, info: BlockCommentInfo, mEndIndex: int, mEndLen: int) =
   inherit NewBlock (BlockType.Comment)
   override _.output ctx (Nonempty(hLine, tLines)) =
 
     let inline hasTextUpTo p (str: string) = Line.containsText (str.Substring(0, min str.Length p))
+    let inline hasNonWhitespaceAfter p (str: string) =
+      let after = str.Substring(p)
+      not (String.IsNullOrWhiteSpace(after))
 
-    let mkFirstLine p : Line =
-      if not (hasTextUpTo p hLine.content) then upcast (DecorationLine hLine)
-      else tabsToSpacesContent ctx.settings.tabWidth hLine
+    let closeOnNewLine = info.isCStyle && ctx.settings.blockCommentCloseOnNewLine
+    let inline validEnd (line: Line) =
+      mEndLen > 0 && mEndIndex >= 0 && mEndIndex + mEndLen <= line.content.Length
 
-    let fmt =
+    let mkFirstLine (line: Line) p : Line =
+      if not (hasTextUpTo p line.content) then upcast (DecorationLine line)
+      else tabsToSpacesContent ctx.settings.tabWidth line
+
+    let fmt, extraEndLine =
       match Nonempty.fromList tLines with
       | None ->
-          SingleLineBlockFmt (mkFirstLine mEndIndex, prefixFn)
+          if closeOnNewLine && validEnd hLine
+             && hasTextUpTo mEndIndex hLine.content
+             && not (hasNonWhitespaceAfter (mEndIndex + mEndLen) hLine.content) then
+            let truncated = Line(hLine.prefix, hLine.content.Substring(0, mEndIndex).TrimEnd())
+            let indent = leadingWhitespace hLine.prefix
+            let endLine = Line("", indent + hLine.content.Substring(mEndIndex, mEndLen))
+            let fl = mkFirstLine truncated truncated.content.Length
+            let info = { info with alignEndMarkerToBody = true }
+            SingleLineBlockFmt (fl, info), Some endLine
+          else
+            SingleLineBlockFmt (mkFirstLine hLine mEndIndex, info), None
       | Some tail ->
-          let bodyLines, nonTextLastLine =
+          let bodyLines, nonTextLastLine, alignEndToBody, extraEndLine =
             let (Nonempty(lastLine, bodyRev)) = Nonempty.rev tail
-            if hasTextUpTo mEndIndex lastLine.content then tLines, None
-            else List.rev bodyRev, Some lastLine
-          let fl = mkFirstLine hLine.content.Length
-          MultiLineBlockFmt (fl, bodyLines, nonTextLastLine, bodyMarkers)
+            if closeOnNewLine && validEnd lastLine
+               && hasTextUpTo mEndIndex lastLine.content
+               && not (hasNonWhitespaceAfter (mEndIndex + mEndLen) lastLine.content) then
+              let before = lastLine.content.Substring(0, mEndIndex).TrimEnd()
+              let indent = leadingWhitespace lastLine.prefix
+              let bodyLine = Line(lastLine.prefix, before)
+              let endLine = Line("", indent + lastLine.content.Substring(mEndIndex, mEndLen))
+              List.rev (bodyLine :: bodyRev), None, true, Some endLine
+            elif hasTextUpTo mEndIndex lastLine.content then tLines, None, false, None
+            else List.rev bodyRev, Some lastLine, false, None
+          let fl = mkFirstLine hLine hLine.content.Length
+          let info = { info with alignEndMarkerToBody = alignEndToBody }
+          MultiLineBlockFmt (fl, bodyLines, nonTextLastLine, info), extraEndLine
 
-    inspectAndProcessContent contentParser fmt ctx
+    inspectAndProcessContent contentParser fmt extraEndLine ctx
 
-let private mkPrefixFn start len rep (pre: string) : string =
-  pre.Substring(0, start) + rep + pre.Substring(start + len)
-
-
+/// Block comment parser
 /// Block comment parser
 let blockComment :
   (string * string) -> (string * string) -> ContentParser -> TryNewParser =
 
   fun (bodyMarkers, defaultBodyMarker) (startMarker, endMarker) contentParser ->
   let startRegex = regex (@"^\s*" + startMarker + @"\s*")
-  let comment prefixFn endMatchIndex =
-    BlockCommentBlock(contentParser, bodyMarkers, defaultBodyMarker, prefixFn, endMatchIndex)
+  let isCStyle = isCStyleBlockComment (startMarker, endMarker)
+  let comment prefixStart prefixLen baseIndent endMatchIndex endMatchLen =
+    let info =
+      { bodyMarkers = bodyMarkers
+        defaultBodyMarker = defaultBodyMarker
+        prefixStart = prefixStart
+        prefixLen = prefixLen
+        baseIndent = baseIndent
+        isCStyle = isCStyle
+        alignEndMarkerToBody = false }
+    BlockCommentBlock(contentParser, info, endMatchIndex, endMatchLen)
 
   let onFindStart (startLine: Line) (m: string[]) : FirstLineRes =
     // Make prefix replacement fn
-    let prefixFn =
-      let pre =
-        if m.Length = 1 || m.[1] = "" then m.[0]
-        else m.[0].Replace(m.[1], String.replicate m.[1].Length " ")
-      let rep = leadingWhitespace pre + defaultBodyMarker
-      mkPrefixFn startLine.prefix.Length m.[0].Length rep
+    let pre =
+      if m.Length = 1 || m.[1] = "" then m.[0]
+      else m.[0].Replace(m.[1], String.replicate m.[1].Length " ")
+    let baseIndent = leadingWhitespace pre
+    let prefixStart = startLine.prefix.Length
+    let prefixLen = m.[0].Length
 
-    let defComment = comment prefixFn Int32.MaxValue
+    let defComment = comment prefixStart prefixLen baseIndent Int32.MaxValue 0
     let endPattern =
       let step (i:int, r:string) s = i + 1, r.Replace("$" + i.ToString(), s)
       Array.fold step (0, endMarker) m |> snd
@@ -251,15 +363,14 @@ let blockComment :
 
     let rec testForEnd (line: Line) : FirstLineRes =
       let m = endRegex.Match(line.content)
-      if m.Success then finished_ line (comment prefixFn m.Index)
+      if m.Success then finished_ line (comment prefixStart prefixLen baseIndent m.Index m.Length)
       else pending line defComment (ThisLine << testForEnd)
-
-
 
     let startLine = Line.adjustSplit m.[0].Length startLine
     testForEnd startLine
 
   fun _ctx line -> tryMatch startRegex line <|>> onFindStart line
+
 
 
 let sourceCode : List<TryNewParser> -> DocumentProcessor =

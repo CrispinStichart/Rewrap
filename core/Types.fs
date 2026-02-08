@@ -18,6 +18,9 @@ type Settings = {
   doubleSentenceSpacing : bool
   reformat : bool
   wholeComment : bool
+  blockCommentAddAsterisks : bool
+  blockCommentCloseOnNewLine : bool
+  blockCommentAlignWithFirstLine : bool
 }
 
 type Position = { line: int; character: int }

@@ -46,6 +46,8 @@ let splitUp : (string -> string) -> (Nonempty<string> -> Blocks) -> (Nonempty<st
             |> Nonempty.mapHead (prependPrefixTrimEndOfBlankLine pre1)
             |> Nonempty.mapTail (prependPrefixTrimEndOfBlankLine pre2)
             |> Block.NoWrap
+      | Block.ExtraLine _ ->
+          block
       | NBlock _ -> raise (System.Exception("splitUp on new block"))
     block', tuple preNext <<|> Nonempty.fromList nextBlocks
 

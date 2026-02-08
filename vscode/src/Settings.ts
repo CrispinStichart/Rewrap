@@ -9,6 +9,9 @@ export interface EditorSettings {
   doubleSentenceSpacing: boolean
   reformat: boolean
   wholeComment: boolean
+  blockCommentAddAsterisks: boolean
+  blockCommentCloseOnNewLine: boolean
+  blockCommentAlignWithFirstLine: boolean
 }
 
 export interface AutoWrapSettings
@@ -28,6 +31,9 @@ export function getCoreSettings (editor: TextEditor, fn: (cols:number[]) => numb
     wholeComment: settings.wholeComment,
     reformat: settings.reformat,
     tabWidth: settings.tabWidth,
+    blockCommentAddAsterisks: settings.blockCommentAddAsterisks,
+    blockCommentCloseOnNewLine: settings.blockCommentCloseOnNewLine,
+    blockCommentAlignWithFirstLine: settings.blockCommentAlignWithFirstLine,
   }
 }
 
@@ -43,6 +49,9 @@ export function getEditorSettings (editor: TextEditor) : EditorSettings {
     doubleSentenceSpacing: setting('rewrap.doubleSentenceSpacing'),
     wholeComment: setting('rewrap.wholeComment'),
     reformat: setting('rewrap.reformat'),
+    blockCommentAddAsterisks: setting('rewrap.blockComment.addAsterisks'),
+    blockCommentCloseOnNewLine: setting('rewrap.blockComment.closeOnNewLine'),
+    blockCommentAlignWithFirstLine: setting('rewrap.blockComment.alignWithFirstLine'),
     tabWidth: checkTabSize(editor.options.tabSize),
   }
 }

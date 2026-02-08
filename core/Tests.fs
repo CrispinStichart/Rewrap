@@ -7,13 +7,17 @@ open Rewrap
 /// Rewrap settings that are applied to each test
 type TestSettings =
   { language: string; column: int; tabWidth: int
-    doubleSentenceSpacing: bool; reformat: bool; wholeComment: bool }
+    doubleSentenceSpacing: bool; reformat: bool; wholeComment: bool
+    blockCommentAddAsterisks: bool; blockCommentCloseOnNewLine: bool
+    blockCommentAlignWithFirstLine: bool }
 
 /// Default settings that are applied unless modifications are specified in the
 /// spec file.
 let defaultSettings: TestSettings =
   { language = "plaintext"; column = 0; tabWidth = 4
-    doubleSentenceSpacing = false; reformat = false; wholeComment = true }
+    doubleSentenceSpacing = false; reformat = false; wholeComment = true
+    blockCommentAddAsterisks = false; blockCommentCloseOnNewLine = false
+    blockCommentAlignWithFirstLine = false }
 
 type Lines = string array
 
@@ -156,6 +160,9 @@ let readTestLines fileName (settings: TestSettings) lines : Result<Test * Option
               doubleSentenceSpacing = settings.doubleSentenceSpacing
               reformat = forceReformat || settings.reformat
               wholeComment = settings.wholeComment
+              blockCommentAddAsterisks = settings.blockCommentAddAsterisks
+              blockCommentCloseOnNewLine = settings.blockCommentCloseOnNewLine
+              blockCommentAlignWithFirstLine = settings.blockCommentAlignWithFirstLine
             }
           input = cleanUp inputLines; selections = sels; expected = cleanUp expectedLines
         }
@@ -178,6 +185,12 @@ let readSamplesInFile (fileName: string) : Result<Test * Option<Test>,TestError>
       doubleSentenceSpacing = pick "doubleSentenceSpacing" bool.Parse defaultSettings.doubleSentenceSpacing
       reformat = pick "reformat" bool.Parse defaultSettings.reformat
       wholeComment = pick "wholeComment" bool.Parse defaultSettings.wholeComment
+      blockCommentAddAsterisks =
+        pick "blockCommentAddAsterisks" bool.Parse defaultSettings.blockCommentAddAsterisks
+      blockCommentCloseOnNewLine =
+        pick "blockCommentCloseOnNewLine" bool.Parse defaultSettings.blockCommentCloseOnNewLine
+      blockCommentAlignWithFirstLine =
+        pick "blockCommentAlignWithFirstLine" bool.Parse defaultSettings.blockCommentAlignWithFirstLine
     }
 
   // Used when we reach EOF; adds the last test if we were in one.
@@ -224,6 +237,9 @@ let printFailure (test: Test) (actual: Lines) =
     if test.settings.doubleSentenceSpacing then "doubleSentenceSpacing: true " else ""
     if test.settings.reformat then "reformat: true " else ""
     if not test.settings.wholeComment then "wholeComment: false" else ""
+    if test.settings.blockCommentAddAsterisks then "blockCommentAddAsterisks: true " else ""
+    if test.settings.blockCommentCloseOnNewLine then "blockCommentCloseOnNewLine: true " else ""
+    if test.settings.blockCommentAlignWithFirstLine then "blockCommentAlignWithFirstLine: true " else ""
   ]
 
   eprintfn "\nFailed: %s %s\n" (prettyFileName test.fileName)

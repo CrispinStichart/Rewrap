@@ -67,6 +67,7 @@ type Block =
   //| NewComment of ((Context -> Nonempty<Line> -> unit) * Nonempty<Line>)
   //| NewWrap of (Option<string -> string> * Nonempty<Line>) | NewNoWrap of Nonempty<Line>
   | NBlock of (NewBlock * Nonempty<Line>)
+  | ExtraLine of string
   with
   static member size (HasSize, b: Block) =
     match b with
@@ -77,6 +78,7 @@ type Block =
       //| NewWrap (_, lines) -> Nonempty.size (HasSize, lines)
       //| NewNoWrap lines -> Nonempty.size (HasSize, lines)
       | NBlock (_, lines) -> size lines
+      | ExtraLine _ -> 0
 
 type Blocks = Nonempty<Block>
 
