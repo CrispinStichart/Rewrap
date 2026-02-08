@@ -50,6 +50,7 @@ const [targetCore, targetVSCode]
 const watch = suppliedAny ('watch')
 const verbose = suppliedAny ('--verbose', '-v')
 const skipVSCodeTests = suppliedAny ('--skip-vscode-tests')
+const forceVSCodeTests = suppliedAny ('--force-vscode-tests')
 let cleanRun, testsRun
 
 
@@ -179,7 +180,8 @@ function runTests ({production} = {}) {
   if (targetVSCode) {
     buildVSCode ({production})
     if (skipVSCodeTests) log ("Skipping VS Code tests (--skip-vscode-tests)")
-    else if (process.env.TERM_PROGRAM == 'vscode') log ("Can't run VS Code tests inside VS Code")
+    else if (!forceVSCodeTests && isVSCodeEnv()) log ("Can't run VS Code tests inside VS Code")
+    else if (!forceVSCodeTests && isVSCodeRunning()) log ("Can't run VS Code tests while VS Code is running")
     else run ("Running VS Code tests", 'node vscode/test/run.cjs')
   }
 }
@@ -376,6 +378,34 @@ function exit (code, msg) {
   process.exit (code)
 }
 
+function isVSCodeEnv () {
+  // Extension host + integrated terminal hints
+  if (process.env.ELECTRON_RUN_AS_NODE) return true
+  if (process.env.TERM_PROGRAM == 'vscode') return true
+  return !!(
+    process.env.VSCODE_PID ||
+    process.env.VSCODE_IPC_HOOK ||
+    process.env.VSCODE_CWD ||
+    process.env.VSCODE_NLS_CONFIG ||
+    process.env.VSCODE_HANDLES_UNCAUGHT_ERRORS
+  )
+}
+
+function isVSCodeRunning () {
+  // Best-effort: avoid failing tests when any VS Code GUI is running.
+  try {
+    if (process.platform == 'win32') {
+      const output = CP.execSync('tasklist /FO CSV', {encoding: 'utf8'})
+      return /"code(\.exe)?"/i.test(output) || /"code - insiders(\.exe)?"/i.test(output)
+    }
+    const output = CP.execSync('ps -A -o comm=', {encoding: 'utf8'})
+    return /(^|\s)(code|code-insiders|code-oss)(\s|$)/.test(output)
+  }
+  catch {
+    return false
+  }
+}
+
 /** Builds parcel command */
 function parcel ([args]) { return npx `parcel ${args} --cache-dir .obj/parcel` }
 
@@ -396,7 +426,7 @@ function showHelpAndExit () {
     "Usage: ./do (<operation> | <component> | <option>)...",
     "- Operations:\n    " + opStrs,
     `- Components: ${components.join(", ")}`,
-    `- Options: --verbose (-v), --skip-vscode-tests`,
+    `- Options: --verbose (-v), --skip-vscode-tests, --force-vscode-tests`,
     "",
     "If no operations are given, does a 'build'. If no components are given,",
     "does all components. Always does builds as necessary.",

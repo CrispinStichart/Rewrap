@@ -31,6 +31,7 @@ npm install
 
 Optional flags:
 - `--skip-vscode-tests` skips VS Code integration tests.
+- `--force-vscode-tests` runs VS Code tests even when VS Code is detected or running.
 
 ## Build (Development)
 
@@ -97,6 +98,12 @@ To skip VS Code tests during packaging:
 
 ```bash
 ./do package --skip-vscode-tests
+```
+
+To force VS Code tests even if VS Code is running:
+
+```bash
+./do test --force-vscode-tests
 ```
 
 Creates a VSIX at `.obj/Rewrap-VSCode.vsix`.
