@@ -17,13 +17,22 @@ const expectedSettings = {
     wholeComment: false,
     reformat: true,
     tabWidth: 2,
+    blockCommentAddAsterisks: false,
+    blockCommentAlignWithFirstLine: false,
+    blockCommentCloseOnNewLine: false,
+    blockCommentOpenOnNewLine: false,
+
   },
   markdown: {
     column: 60,
     doubleSentenceSpacing: false,
     wholeComment: true,
     reformat: false,
-    tabWidth: 6,
+    tabWidth: 6,    
+    blockCommentAddAsterisks: false,
+    blockCommentAlignWithFirstLine: false,
+    blockCommentCloseOnNewLine: false,
+    blockCommentOpenOnNewLine: false,
   },
 }
 
