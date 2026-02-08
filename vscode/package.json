@@ -1,6 +1,6 @@
 {
   "name": "rewrap-revived",
-  "displayName": "Rewrap Revived",
+  "displayName": "Rewrap Reborn",
   "description": "Hard word wrapping for comments and other text at a given column.",
   "keywords": [
     "word wrap",
@@ -12,15 +12,15 @@
     "paragraph",
     "multi-root ready"
   ],
-  "version": "17.9.0",
-  "publisher": "dnut",
+  "version": "1.0.0",
+  "publisher": "Crispin Stichart",
   "icon": "logo.png",
   "repository": {
     "type": "git",
-    "url": "https://github.com/dnut/rewrap.git"
+    "url": "https://github.com/crispinstichart/rewrap.git"
   },
   "bugs": {
-    "url": "https://github.com/dnut/rewrap/issues"
+    "url": "https://github.com/dnut/crispinstichart/issues"
   },
   "license": "SEE LICENSE IN LICENSE",
   "engines": {
