@@ -23,12 +23,14 @@ open Prelude
 // The DocState stores the current filepath, document version number and
 // selection position, to make sure the user hasn't switched file, made an
 // edit, or even moved the cursor, respectively.
-let mutable private lastDocState : DocState =
-    { filePath = ""; version = 0; selections = [||] }
+let mutable private lastDocState: DocState =
+  { filePath = ""
+    version = 0
+    selections = [||] }
 
 /// We remember the last wrapping column used for each document.
 let private docWrappingColumns =
-    new System.Collections.Generic.Dictionary<string, int>()
+  new System.Collections.Generic.Dictionary<string, int>()
 
 
 //vvvvvvvvvvvvvvvvvvvvvvvvvvvvvv PUBLIC MEMBERS vvvvvvvvvvvvvvvvvvvvvvvvvvvvvv//
@@ -46,14 +48,18 @@ let private docWrappingColumns =
 //
 // The list of rulers must not be empty.
 let getWrappingColumn filePath rulers =
-    let setAndReturn column = docWrappingColumns.[filePath] <- column; column
-    let firstRuler = Array.head rulers
-    if not (docWrappingColumns.ContainsKey(filePath)) then
-         setAndReturn firstRuler
-    else
-        Array.tryFind ((=) docWrappingColumns.[filePath]) rulers
-            |> Option.defaultValue firstRuler
-            |> setAndReturn
+  let setAndReturn column =
+    docWrappingColumns.[filePath] <- column
+    column
+
+  let firstRuler = Array.head rulers
+
+  if not (docWrappingColumns.ContainsKey(filePath)) then
+    setAndReturn firstRuler
+  else
+    Array.tryFind ((=) docWrappingColumns.[filePath]) rulers
+    |> Option.defaultValue firstRuler
+    |> setAndReturn
 
 // Takes a set of rulers and check if we already have a wrapping column for the
 // given document.
@@ -65,19 +71,23 @@ let getWrappingColumn filePath rulers =
 //     ruler
 // The list of rulers must not be empty
 let maybeChangeWrappingColumn (docState: DocState) (rulers: int[]) : int =
-    let filePath = docState.filePath
-    if not (docWrappingColumns.ContainsKey(filePath)) then
-        getWrappingColumn filePath rulers
-    else
-        let shiftRulerIfDocStateUnchanged i =
-            if docState = lastDocState then (i + 1) % rulers.Length else i
-        let rulerIndex =
-            Array.tryFindIndex ((=) docWrappingColumns.[filePath]) rulers
-                |> maybe 0 shiftRulerIfDocStateUnchanged
+  let filePath = docState.filePath
 
-        docWrappingColumns.[filePath] <- rulers.[rulerIndex]
-        docWrappingColumns.[filePath]
+  if not (docWrappingColumns.ContainsKey(filePath)) then
+    getWrappingColumn filePath rulers
+  else
+    let shiftRulerIfDocStateUnchanged i =
+      if docState = lastDocState then
+        (i + 1) % rulers.Length
+      else
+        i
+
+    let rulerIndex =
+      Array.tryFindIndex ((=) docWrappingColumns.[filePath]) rulers
+      |> maybe 0 shiftRulerIfDocStateUnchanged
+
+    docWrappingColumns.[filePath] <- rulers.[rulerIndex]
+    docWrappingColumns.[filePath]
 
 /// Saves the DocState, to compare against next time.
-let saveDocState docState =
-    lastDocState <- docState
+let saveDocState docState = lastDocState <- docState

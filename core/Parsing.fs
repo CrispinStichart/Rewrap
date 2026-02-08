@@ -39,46 +39,53 @@ open Wrapping
 type Context(settings: Settings) =
   let mutable blocks: Block list = []
   let mutable lines: Line list = []
-  member val output = OutputBuffer (settings)
+  member val output = OutputBuffer(settings)
   member _.settings = settings
-  member _.addBlock : Block -> Unit = fun block -> blocks <- block :: blocks
+  member _.addBlock: Block -> Unit = fun block -> blocks <- block :: blocks
   //member _.addWrap : (string -> string) Option -> Nonempty<Line> -> Unit =
   //  fun prefixFn lines -> blocks <- NBlock (wrapBlock' prefixFn, lines) :: blocks
   //member _.addNoWrap : Nonempty<Line> -> Unit =
   //  fun lines -> blocks <- NBlock (noWrapBlock, lines) :: blocks
-  member _.getBlocks () = Nonempty.fromSeqUnsafe (List.rev blocks)
+  member _.getBlocks() =
+    Nonempty.fromSeqUnsafe (List.rev blocks)
 
 
 /// The BlockType is so that we know what to do w.r.t. selections. Comments can be wholly
 /// wrapped if there's an empty selection in them, and take precedence over NoWrap. NoWrap
 /// only gets wrapped if there are no comments in the selection.
-type BlockType = Comment | Wrap | NoWrap | Embedded
+type BlockType =
+  | Comment
+  | Wrap
+  | NoWrap
+  | Embedded
 
 [<AbstractClass>]
-type NewBlock (bType) =
-  abstract member output : Context -> Nonempty<Line> -> unit
-  member _.bType : BlockType = bType
+type NewBlock(bType) =
+  abstract member output: Context -> Nonempty<Line> -> unit
+  member _.bType: BlockType = bType
   member x.isComment = x.bType = BlockType.Comment
   member x.isContainer = x.isComment || x.bType = BlockType.Embedded
 
 
 type Block =
-  | Comment of Blocks | Wrap of Wrappable | NoWrap of Nonempty<string>
+  | Comment of Blocks
+  | Wrap of Wrappable
+  | NoWrap of Nonempty<string>
   //| NewComment of ((Context -> Nonempty<Line> -> unit) * Nonempty<Line>)
   //| NewWrap of (Option<string -> string> * Nonempty<Line>) | NewNoWrap of Nonempty<Line>
   | NBlock of (NewBlock * Nonempty<Line>)
   | ExtraLine of string
-  with
-  static member size (HasSize, b: Block) =
+
+  static member size(HasSize, b: Block) =
     match b with
-      | Comment subBlocks -> subBlocks |> Seq.sumBy (fun b -> Block.size(HasSize, b))
-      | NoWrap lines -> Nonempty.size (HasSize, lines)
-      | Wrap (_, lines) -> Nonempty.size (HasSize, lines)
-      //| NewComment (_, lines) -> size lines
-      //| NewWrap (_, lines) -> Nonempty.size (HasSize, lines)
-      //| NewNoWrap lines -> Nonempty.size (HasSize, lines)
-      | NBlock (_, lines) -> size lines
-      | ExtraLine _ -> 0
+    | Comment subBlocks -> subBlocks |> Seq.sumBy (fun b -> Block.size (HasSize, b))
+    | NoWrap lines -> Nonempty.size (HasSize, lines)
+    | Wrap(_, lines) -> Nonempty.size (HasSize, lines)
+    //| NewComment (_, lines) -> size lines
+    //| NewWrap (_, lines) -> Nonempty.size (HasSize, lines)
+    //| NewNoWrap lines -> Nonempty.size (HasSize, lines)
+    | NBlock(_, lines) -> size lines
+    | ExtraLine _ -> 0
 
 type Blocks = Nonempty<Block>
 
@@ -89,25 +96,27 @@ type Blocks = Nonempty<Block>
 type PrefixTransformer = string -> string
 
 /// For a block that will be wrapped if selected
-type WrapBlock (prefixFn_) =
-  inherit NewBlock (BlockType.Wrap)
-  member _.prefixFn : PrefixTransformer = prefixFn_
-  override x.output ctx lines : unit = ctx.output.wrap (Some x.prefixFn, lines)
+type WrapBlock(prefixFn_) =
+  inherit NewBlock(BlockType.Wrap)
+  member _.prefixFn: PrefixTransformer = prefixFn_
+
+  override x.output ctx lines : unit =
+    ctx.output.wrap (Some x.prefixFn, lines)
 
 
 /// Creates a WrapBlock with no prefix function
-let wrapBlock = WrapBlock (id) :> NewBlock
+let wrapBlock = WrapBlock(id) :> NewBlock
 
 /// Creates a NewWrap block with the given prefix function
-let wrapBlock' (prefixFn: PrefixTransformer) = WrapBlock (prefixFn) :> NewBlock
+let wrapBlock' (prefixFn: PrefixTransformer) = WrapBlock(prefixFn) :> NewBlock
 
 /// For a block that normally won't be wrapped
-type NoWrapBlock () =
-  inherit NewBlock (BlockType.NoWrap)
+type NoWrapBlock() =
+  inherit NewBlock(BlockType.NoWrap)
   override x.output ctx lines : unit = ctx.output.noWrap lines
 
 /// Creates a NoNewWrap block
-let noWrapBlock = NoWrapBlock () :> NewBlock
+let noWrapBlock = NoWrapBlock() :> NewBlock
 
 
 
@@ -136,10 +145,14 @@ and FinishedRes = LineRes<Option<FirstLineParser>>
 and FirstLineParser = Line -> FirstLineRes
 
 /// Result from the first line of a block
-and FirstLineRes = Pending of PendingRes | Finished of FinishedRes
+and FirstLineRes =
+  | Pending of PendingRes
+  | Finished of FinishedRes
 
 /// Result from subsequent lines of a block
-and NextLineRes = ThisLine of FirstLineRes | FinishedOnPrev of Option<FirstLineRes>
+and NextLineRes =
+  | ThisLine of FirstLineRes
+  | FinishedOnPrev of Option<FirstLineRes>
 
 
 /// Function that takes a Context and Line and is certain to produce a result
@@ -157,64 +170,80 @@ type private PLState =
   | InParser of List<Line> * PendingRes
 
 /// For the shim to the old code
-type private SpecialLineRes(line: Line, nextParser: Line -> NextLineRes, fn: unit -> unit) =
+type private SpecialLineRes(line: Line, nextParser: Line -> NextLineRes, fn: unit -> unit)
+  =
   inherit LineRes<Line -> NextLineRes>(line, noWrapBlock, false, nextParser)
   member _.fn = fn
 
 /// Called from outside this module. Takes a DocParser and feeds a sequence of
 /// lines into it, collecting the results
-let processContent : ContentParser -> Context -> seq<Line> -> unit =
+let processContent: ContentParser -> Context -> seq<Line> -> unit =
   fun docParser ctx ->
-  let initParser = docParser ctx
-  let inline addBlock lines (res: LineRes<'p>) =
-    ctx.addBlock (NBlock (res.blockType, (Nonempty.rev (res.line .@ lines))))
-  let doFirstLineRes lines : FirstLineRes -> PLState = function
-    | Pending r -> InParser (lines, r)
-    | Finished r -> addBlock lines r; NewParser r.nextParser
-  let step state line : PLState =
-    match state with
-    | NewParser p -> doFirstLineRes [] ((p |? initParser) line)
-    | InParser (ls, rPrev) ->
+    let initParser = docParser ctx
+
+    let inline addBlock lines (res: LineRes<'p>) =
+      ctx.addBlock (NBlock(res.blockType, (Nonempty.rev (res.line .@ lines))))
+
+    let doFirstLineRes lines : FirstLineRes -> PLState =
+      function
+      | Pending r -> InParser(lines, r)
+      | Finished r ->
+        addBlock lines r
+        NewParser r.nextParser
+
+    let step state line : PLState =
+      match state with
+      | NewParser p -> doFirstLineRes [] ((p |? initParser) line)
+      | InParser(ls, rPrev) ->
         match rPrev.nextParser line with
         | ThisLine x -> doFirstLineRes (rPrev.line :: ls) x
-        | FinishedOnPrev (Some x) -> addBlock ls rPrev; doFirstLineRes [] x
-        | FinishedOnPrev None -> addBlock ls rPrev; doFirstLineRes [] (initParser line)
+        | FinishedOnPrev(Some x) ->
+          addBlock ls rPrev
+          doFirstLineRes [] x
+        | FinishedOnPrev None ->
+          addBlock ls rPrev
+          doFirstLineRes [] (initParser line)
 
-  fun lines ->
-  let init = doFirstLineRes [] (initParser (Seq.head lines))
-  match Seq.fold step init (Seq.tail lines) with
-  | NewParser _ -> ()
-  | InParser (ls, rPrev) ->
-      match rPrev with
-      | :? SpecialLineRes as rPrevS -> rPrevS.fn ()
-      | _ -> addBlock ls rPrev
+    fun lines ->
+      let init = doFirstLineRes [] (initParser (Seq.head lines))
+
+      match Seq.fold step init (Seq.tail lines) with
+      | NewParser _ -> ()
+      | InParser(ls, rPrev) ->
+        match rPrev with
+        | :? SpecialLineRes as rPrevS -> rPrevS.fn ()
+        | _ -> addBlock ls rPrev
 
 
 /// Converts an old parser to a new ContentParser
-let toNewContent : (Settings -> Nonempty<string> -> Blocks) -> Context -> Line -> FirstLineRes =
+let toNewContent
+  : (Settings -> Nonempty<string> -> Blocks) -> Context -> Line -> FirstLineRes =
   fun oldParser ctx firstLine ->
-  let mutable lines = singleton firstLine.content
-  let runOldParser () =
-    oldParser ctx.settings (Nonempty.rev lines) |> Seq.iter ctx.addBlock
-  let rec parseLine (line: Line) : NextLineRes =
-    lines <- Nonempty.cons line.content lines
-    ThisLine (Pending (SpecialLineRes (line, parseLine, runOldParser)))
-  Pending (SpecialLineRes (Line("", ""), parseLine, runOldParser))
+    let mutable lines = singleton firstLine.content
+
+    let runOldParser () =
+      oldParser ctx.settings (Nonempty.rev lines) |> Seq.iter ctx.addBlock
+
+    let rec parseLine (line: Line) : NextLineRes =
+      lines <- Nonempty.cons line.content lines
+      ThisLine(Pending(SpecialLineRes(line, parseLine, runOldParser)))
+
+    Pending(SpecialLineRes(Line("", ""), parseLine, runOldParser))
 
 
 /// Converts an old parser to a new DocumentProcessor
-let toNewDocProcessor : (Settings -> Nonempty<string> -> Blocks) -> DocumentProcessor =
+let toNewDocProcessor: (Settings -> Nonempty<string> -> Blocks) -> DocumentProcessor =
   fun oldParser ctx seqLines ->
-  let lines = Nonempty.fromSeqUnsafe (seqLines |> Seq.map (fun l -> l.content))
-  oldParser ctx.settings lines |> Seq.iter ctx.addBlock
+    let lines = Nonempty.fromSeqUnsafe (seqLines |> Seq.map (fun l -> l.content))
+    oldParser ctx.settings lines |> Seq.iter ctx.addBlock
 
 
 /// Converts a new ContentParser to an old parser
-let toOldParser : ContentParser -> Settings -> Nonempty<string> -> Blocks =
+let toOldParser: ContentParser -> Settings -> Nonempty<string> -> Blocks =
   fun parser settings lines ->
-  let ctx = Context(settings)
-  processContent parser ctx (lines |> Seq.map (fun s -> Line("", s)))
-  ctx.getBlocks()
+    let ctx = Context(settings)
+    processContent parser ctx (lines |> Seq.map (fun s -> Line("", s)))
+    ctx.getBlocks ()
 
 
 /// Creates a DocumentProcessor in place of a ContentParser

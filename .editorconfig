@@ -11,3 +11,16 @@ tab_width=4
 
 [*.fs]
 tab_width=2
+indent_size=2
+max_line_length=90
+
+[*.{fsx,fsi}]
+indent_style = space
+tab_width=2
+indent_size=2
+max_line_length=90
+
+[*.ts]
+indent_style = space
+tab_width=2
+indent_size=2

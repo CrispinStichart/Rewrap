@@ -12,12 +12,11 @@ Latest stable version <b>1.16.3</b> / pre-release <b>17.x</b> /
 <a href="https://github.com/dnut/rewrap/releases">changelog</a>
 </td></tr></table>
 
-
 <h1 style="font-size: 2.5em">Rewrap Revived</h1>
 
-Rewrap Revived is a Visual Studio and VS Code extension that is used to hard-wrap code 
-comments to a configured maximium line length. This is a fork of the unmaintained 
-[Rewrap](https://github.com/stkb/Rewrap) extension by Steve Baker 
+Rewrap Revived is a Visual Studio and VS Code extension that is used to hard-wrap code
+comments to a configured maximium line length. This is a fork of the unmaintained
+[Rewrap](https://github.com/stkb/Rewrap) extension by Steve Baker
 ([@stkb](https://github.com/stkb)).
 
 <br><img src="https://dnut.github.io/Rewrap/images/example.svg" width="700px"/><br/><br/>
@@ -28,11 +27,11 @@ The main Rewrap command is: <sn>**Rewrap Comment / Text**</sn>, by default bound
 
 ## Features
 
-* Re-wrap comment blocks in many languages, with per-language settings.
-* Smart handling of contents, including Java-/JS-/XMLDoc tags and code examples.
-* Can select lines to wrap or multiple comments/paragraphs at once (even the whole
+- Re-wrap comment blocks in many languages, with per-language settings.
+- Smart handling of contents, including Java-/JS-/XMLDoc tags and code examples.
+- Can select lines to wrap or multiple comments/paragraphs at once (even the whole
   document).
-* Also works with Markdown documents, LaTeX or any kind of plain text file.
+- Also works with Markdown documents, LaTeX or any kind of plain text file.
 
 The contents of comments are usually parsed as markdown, so you can use lists, code
 samples (which are untouched) etc:
@@ -49,6 +48,6 @@ Rewrap Revived is available in both the
 and the [OpenVSX marketplace](https://open-vsx.org/extension/dnut/rewrap-revived).
 
 **Please install the pre-release version**. That way, you can identify any bugs and report
-them, so they don't make their way into the stable release. If you *do* observe a bug, then you
+them, so they don't make their way into the stable release. If you _do_ observe a bug, then you
 can switch to the stable release, and rest assured that the bug will not be introduced there,
 since you have reported the issue (unless of course, it is already present in both releases).

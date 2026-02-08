@@ -20,27 +20,44 @@ let private markdown = Parsing.Markdown.markdown
 /// into blocks. If the first section doesn't start with a matching line, it is
 /// processed with the noMatchParser.
 let private splitBeforeTags
-  : Regex -> (Match -> Settings -> string TotalParser) -> (Settings -> string TotalParser)
-  -> Settings -> Lines -> Blocks =
+  : Regex
+      -> (Match -> Settings -> string TotalParser)
+      -> (Settings -> string TotalParser)
+      -> Settings
+      -> Lines
+      -> Blocks =
   fun regex matchParser noMatchParser settings (Nonempty(outerHead, outerTail)) ->
 
-  let rec prependRev (Nonempty(head, tail)) maybeRest =
-    let nextRest = maybeRest |> maybe (singleton head) (Nonempty.cons head)
-    Nonempty.fromList tail |> maybe nextRest (fun next -> prependRev next (Some nextRest))
+    let rec prependRev (Nonempty(head, tail)) maybeRest =
+      let nextRest = maybeRest |> maybe (singleton head) (Nonempty.cons head)
 
-  let rec loop (tagMatch: Match) buffer maybeOutput lines =
-    let parser = if tagMatch.Success then matchParser tagMatch else noMatchParser
-    let addBufferToOutput () = prependRev (parser settings (Nonempty.rev buffer)) maybeOutput
-    match lines with
+      Nonempty.fromList tail
+      |> maybe nextRest (fun next -> prependRev next (Some nextRest))
+
+    let rec loop (tagMatch: Match) buffer maybeOutput lines =
+      let parser =
+        if tagMatch.Success then
+          matchParser tagMatch
+        else
+          noMatchParser
+
+      let addBufferToOutput () =
+        prependRev (parser settings (Nonempty.rev buffer)) maybeOutput
+
+      match lines with
       | [] -> (addBufferToOutput ()) |> Nonempty.rev
       | headLine :: tailLines ->
-          let m = regex.Match(headLine)
-          let nextTagMatch, nextBuffer, nextOutput =
-            if m.Success then m, singleton headLine, Some (addBufferToOutput ())
-            else tagMatch, Nonempty.cons headLine buffer, maybeOutput
-          loop nextTagMatch nextBuffer nextOutput tailLines
+        let m = regex.Match(headLine)
 
-  loop (regex.Match(outerHead)) (Nonempty.singleton outerHead) None outerTail
+        let nextTagMatch, nextBuffer, nextOutput =
+          if m.Success then
+            m, singleton headLine, Some(addBufferToOutput ())
+          else
+            tagMatch, Nonempty.cons headLine buffer, maybeOutput
+
+        loop nextTagMatch nextBuffer nextOutput tailLines
+
+    loop (regex.Match(outerHead)) (Nonempty.singleton outerHead) None outerTail
 
 let javadoc =
   let tagRegex = Regex(@"^\s*@(\w+)(.*)$")
@@ -48,6 +65,7 @@ let javadoc =
   /// "Freezes" inline tags ({@tag }) so that they don't get broken up
   // Escape braces for JS unicode regex (RegExp uses the "u" flag).
   let inlineTagRegex = Regex(@"\{@[a-z]+.*?[^\\]\}", RegexOptions.IgnoreCase)
+
   let markdownWithInlineTags settings =
     let replaceSpace (m: Match) = m.Value.Replace(' ', '\000')
     map (fun s -> inlineTagRegex.Replace(s, replaceSpace)) >> markdown settings
@@ -56,8 +74,10 @@ let javadoc =
     if Line.isBlank (m.Groups.Item(2).Value) then
       if m.Groups.Item(1).Value.ToLower() = "example" then
         (fun _ -> ignoreBlock >> singleton)
-      else ignoreFirstLine markdownWithInlineTags
-    else markdownWithInlineTags
+      else
+        ignoreFirstLine markdownWithInlineTags
+    else
+      markdownWithInlineTags
 
   splitBeforeTags tagRegex matchParser markdownWithInlineTags
 
@@ -68,37 +88,56 @@ let psdoc =
 
   let exampleSection settings lines =
     let trimmedExampleSection =
-      ignoreFirstLine (splitBeforeTags codeLineRegex (fun _ -> ignoreFirstLine markdown) markdown)
-    match Nonempty.span Line.isBlank lines with
-      | Some (blankLines, None) -> Nonempty.singleton (ignoreBlock blankLines)
-      | Some (blankLines, Some remaining) ->
-          Nonempty.cons (ignoreBlock blankLines) (trimmedExampleSection settings remaining)
-      | None -> trimmedExampleSection settings lines
+      ignoreFirstLine (
+        splitBeforeTags codeLineRegex (fun _ -> ignoreFirstLine markdown) markdown
+      )
 
-  splitBeforeTags tagRegex
+    match Nonempty.span Line.isBlank lines with
+    | Some(blankLines, None) -> Nonempty.singleton (ignoreBlock blankLines)
+    | Some(blankLines, Some remaining) ->
+      Nonempty.cons (ignoreBlock blankLines) (trimmedExampleSection settings remaining)
+    | None -> trimmedExampleSection settings lines
+
+  splitBeforeTags
+    tagRegex
     (fun m ->
-      if m.Groups.Item(1).Value = "EXAMPLE" then ignoreFirstLine exampleSection else
-      ignoreFirstLine
-        (fun settings ->
-            Comments.extractWrappable "" false (fun _ -> "  ") settings
-                >> Block.oldSplitUp (markdown settings)
-        )
-    )
+      if m.Groups.Item(1).Value = "EXAMPLE" then
+        ignoreFirstLine exampleSection
+      else
+        ignoreFirstLine (fun settings ->
+          Comments.extractWrappable "" false (fun _ -> "  ") settings
+          >> Block.oldSplitUp (markdown settings)))
     markdown
 
 
 /// DDoc for D. Stub until it's implemented. https://dlang.org/spec/ddoc.html
-let ddoc =
-    markdown
+let ddoc = markdown
 
 
 
 let xmldoc =
-    let blank = docOf ignoreAll
-    let blockTags =
-        [| "code"; "description"; "example"; "exception"; "include"
-           "inheritdoc"; "list"; "listheader"; "item"; "para"; "param"
-           "permission"; "remarks"; "seealso"; "summary"; "term"; "typeparam"
-           "typeparamref"; "returns"; "value"
-        |]
-    sgml blank blank blockTags
+  let blank = docOf ignoreAll
+
+  let blockTags =
+    [| "code"
+       "description"
+       "example"
+       "exception"
+       "include"
+       "inheritdoc"
+       "list"
+       "listheader"
+       "item"
+       "para"
+       "param"
+       "permission"
+       "remarks"
+       "seealso"
+       "summary"
+       "term"
+       "typeparam"
+       "typeparamref"
+       "returns"
+       "value" |]
+
+  sgml blank blank blockTags

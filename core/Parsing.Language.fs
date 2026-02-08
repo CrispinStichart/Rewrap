@@ -4,34 +4,38 @@ open System
 open Parsing_
 
 type Language =
-    private Language of string * array<string> * array<string> * DocumentProcessor
+  private | Language of string * array<string> * array<string> * DocumentProcessor
 
 module Language =
 
-    // Takes 4 args to create a Language:
-    //  1. display name (used only in VS)
-    //  2. string of aliases (language IDs used by the client. Not needed if
-    //     they only differ from display name by casing)
-    //  3. string of file extensions (including `.`). Used to give support to
-    //     files that are not known by the client.
-    //  4. document processor
-    //
-    // Aliases and extensions are separated by `|`
-    let create (name: string) (aliases: string) (exts: string) parser : Language =
-        let split (s: string) = s.ToLower().Split([|'|'|], StringSplitOptions.RemoveEmptyEntries)
-        Language(name, Array.append [|name.ToLower()|]  (split aliases), split exts, parser)
+  // Takes 4 args to create a Language:
+  //  1. display name (used only in VS)
+  //  2. string of aliases (language IDs used by the client. Not needed if
+  //     they only differ from display name by casing)
+  //  3. string of file extensions (including `.`). Used to give support to
+  //     files that are not known by the client.
+  //  4. document processor
+  //
+  // Aliases and extensions are separated by `|`
+  let create (name: string) (aliases: string) (exts: string) parser : Language =
+    let split (s: string) =
+      s.ToLower().Split([| '|' |], StringSplitOptions.RemoveEmptyEntries)
 
-    let name (Language(n,_,_,_)) = n
+    Language(name, Array.append [| name.ToLower() |] (split aliases), split exts, parser)
 
-    let parser (Language(_,_,_,p)) = p
+  let name (Language(n, _, _, _)) = n
 
-    let matchesFileLanguage (fileLang: string) (Language(_,ids,_,_)) =
-        Seq.contains (fileLang.ToLower()) ids
+  let parser (Language(_, _, _, p)) = p
 
-    let matchesFilePath (path: string) (Language(_,_,exts,_)) =
-        let fileName = path.ToLower().Split('\\', '/') |> Array.last
-        let tryMatch : string -> bool = function
-            | ext when ext.StartsWith(".") -> fileName.EndsWith(ext)
-            | fullname -> fileName.Equals(fullname)
+  let matchesFileLanguage (fileLang: string) (Language(_, ids, _, _)) =
+    Seq.contains (fileLang.ToLower()) ids
 
-        Seq.exists tryMatch exts
+  let matchesFilePath (path: string) (Language(_, _, exts, _)) =
+    let fileName = path.ToLower().Split('\\', '/') |> Array.last
+
+    let tryMatch: string -> bool =
+      function
+      | ext when ext.StartsWith(".") -> fileName.EndsWith(ext)
+      | fullname -> fileName.Equals(fullname)
+
+    Seq.exists tryMatch exts
