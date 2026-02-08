@@ -116,6 +116,10 @@ let beforeRegex : Regex -> SplitFunction<string,string,string> =
 let afterRegex : Regex -> SplitFunction<string,string,string> =
     fun regex -> Nonempty.splitAfter (Line.contains regex)
 
+/// Creates a SplitFunction that splits after a line contains the given text
+let afterText : string -> SplitFunction<string,string,string> =
+    fun text -> Nonempty.splitAfter (fun line -> line.Contains(text))
+
 
 /// Creates a SplitFunction that splits on indent differences > 2
 let onIndent tabWidth (Nonempty(firstLine, otherLines)): Nonempty<string> * Option<Nonempty<string>> =
@@ -184,6 +188,23 @@ let takeLinesBetweenMarkers
         lines
             |> Nonempty.mapHead (String.dropStart prefix.Length)
             |> afterRegex endRegex
+            |> Tuple.mapFirst (Nonempty.replaceHead headLine)
+
+    headLine
+        |> Line.tryMatch startRegex
+        |> Option.map takeUntilEndMarker
+
+
+/// Like takeLinesBetweenMarkers, but uses a literal end marker instead of a regex.
+let takeLinesBetweenMarkersText
+    (startRegex: Regex, endText: string)
+    (Nonempty(headLine, _) as lines)
+    : Option<Nonempty<string> * Option<Nonempty<string>>> =
+
+    let takeUntilEndMarker (prefix: string) =
+        lines
+            |> Nonempty.mapHead (String.dropStart prefix.Length)
+            |> afterText endText
             |> Tuple.mapFirst (Nonempty.replaceHead headLine)
 
     headLine

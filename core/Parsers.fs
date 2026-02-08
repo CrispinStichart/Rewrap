@@ -11,7 +11,8 @@ let dartdoc : ContentParser -> ContentParser =
   fun content ctx ->
 
   let tryMatchTag : Line -> Option<FirstLineRes> =
-    tryMatch' (regex @"^\s*(@nodoc|{@template|{@endtemplate|{@macro)") <>>> fun (_, line) ->
+    // Escape braces for JS unicode regex (RegExp uses the "u" flag).
+    tryMatch' (regex @"^\s*(@nodoc|\{@template|\{@endtemplate|\{@macro)") <>>> fun (_, line) ->
       finished_ line noWrapBlock
 
   let rec wrapFLR : FirstLineRes -> FirstLineRes = function
@@ -52,7 +53,8 @@ let private jsdoc : ContentParser -> ContentParser =
 
   /// "Freezes" inline tags ({@tag }) so that they don't get broken up
   let freezeInlineTags : Line -> Line =
-    let rx = regex @"{@[a-z]+.*?[^\\]}"
+    // Escape braces for JS unicode regex (RegExp uses the "u" flag).
+    let rx = regex @"\{@[a-z]+.*?[^\\]\}"
     Line.mapContent (fun s -> rx.Replace(s, fun m -> m.Value.Replace(' ', '\000')))
 
   let tryMatchTag : Line -> Option<FirstLineRes> =

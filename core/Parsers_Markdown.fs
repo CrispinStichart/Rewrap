@@ -74,22 +74,35 @@ let private htmlType1To6 : TryNewParser =
     let m = rxStart.Match(line.content)
     if not m.Success then None else Some <| matchEnd rxEnd m.Length line
 
+  let mkParserText (patStart, endText) =
+    let rxStart = mdMarker patStart
+    let rec matchEndText fromPos (line: Line) : FirstLineRes =
+      if line.content.IndexOf(endText, fromPos, StringComparison.Ordinal) >= 0 then
+        finished_ line noWrapBlock
+      else pending line noWrapBlock (matchEndText 0 >> ThisLine)
+    fun _ctx (line: Line) ->
+    let m = rxStart.Match(line.content)
+    if not m.Success then None else Some <| matchEndText m.Length line
+
   let types : List<TryNewParser> =
-    [ "<(script|pre|style)( |>|$)", "</(script|pre|style)>"
-      "<!--", "-->"
-      "<\\?", "\\?>"
-      "<![A-Z]", ">"
-      "<!\\[CDATA\\[", "]]>"
-      "</?(address|article|aside|base|basefont|blockquote"
-        + "|body|caption|center|col|colgroup|dd|details"
-        + "|dialog|dir|div|dl|dt|fieldset|figcaption|figure"
-        + "|footer|form|frame|frameset|h1|h2|h3|h4|h5|h6"
-        + "|head|header|hr|html|iframe|legend|li|link|main"
-        + "|menu|menuitem|meta|nav|noframes|ol|optgroup"
-        + "|option|p|param|section|source|summary|table"
-        + "|tbody|td|tfoot|th|thead|title|tr|track|ul)"
-        + "(\\s|/?>|$)", "^\\s*$" // terminates on a blank line (works)
-    ] |> map mkParser
+    [ mkParser ("<(script|pre|style)( |>|$)", "</(script|pre|style)>")
+      mkParser ("<!--", "-->")
+      mkParser ("<\\?", "\\?>")
+      mkParser ("<![A-Z]", ">")
+      mkParserText ("<!\\[CDATA\\[", "]]>")
+      mkParser
+        ( "</?(address|article|aside|base|basefont|blockquote"
+          + "|body|caption|center|col|colgroup|dd|details"
+          + "|dialog|dir|div|dl|dt|fieldset|figcaption|figure"
+          + "|footer|form|frame|frameset|h1|h2|h3|h4|h5|h6"
+          + "|head|header|hr|html|iframe|legend|li|link|main"
+          + "|menu|menuitem|meta|nav|noframes|ol|optgroup"
+          + "|option|p|param|section|source|summary|table"
+          + "|tbody|td|tfoot|th|thead|title|tr|track|ul)"
+          + "(\\s|/?>|$)"
+        , "^\\s*$" // terminates on a blank line (works)
+        )
+    ]
 
   (tryMany types) ctx
 

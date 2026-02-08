@@ -169,8 +169,8 @@ function runTests ({production} = {}) {
 
   buildCore ({production})
   if (targetCore) {
-    if (production && outdated (coreTestProd, coreTestDev))
-      run ("Bundling Core tests with Parcel", parcel `build core/test`)
+    if (production && outdated (coreTestProd, 'core/dist/dev'))
+      run ("Bundling Core tests with Parcel", parcel `build core/test --no-optimize`)
     const msg = 'Core build complete. Running tests:'
     run (msg, `node core/test${production ? '/prod': ''}`, {showOutput: true})
   }
@@ -212,7 +212,8 @@ function buildCore ({production} = {}) {
         exit (1)
       }
     }
-    if (production && outdated (coreProd, 'core')) run ("Parcel bundling Core", parcel `build core`)
+    if (production && outdated (coreProd, 'core'))
+      run ("Parcel bundling Core", parcel `build core --no-optimize`)
   }
 }
 
@@ -317,6 +318,7 @@ function removeFiles (...paths) {
   paths.filter (p => FS.existsSync (p))
     .map (p => { log (`Removing file ${p}`); FS.rmSync (p, {force:true}) })
 }
+
 
 const readFile = async (p) => FS.promises.readFile (p, 'utf8')
 
